@@ -116,9 +116,6 @@ class PluginGrafanaGrafana {
       // set auto page breaks
       $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
 
-      // set image scale factor
-//      $pdf->setImageScale(PDF_IMAGE_SCALE_RATIO);
-
       // set font
       $pdf->SetFont('helvetica', '', 10);
 
@@ -127,9 +124,13 @@ class PluginGrafanaGrafana {
       $page_width = $pdf->getPageWidth();
       $y = 0;
       // get each graph of each panel and recompose each line
+
+      $scale = 4;
+      $pdf->setImageScale($scale);
+
+
       foreach ($dashboard->dashboard->rows as $row) {
-//         $page_width = 900;
-         $space = 2;
+         $space = 7;
          $span_width = ceil($page_width - ($space * 13)) / 12;
 
          //$html = $this->loadCSS(False);
@@ -138,18 +139,13 @@ class PluginGrafanaGrafana {
          $x = $space;
          $max_height_image = 0;
          foreach ($row->panels as $panel) {
-            /**
-             * we need:
-             *  id
-             *  span (/12 max)
-             *
-             */
             // get the image
-            $width = $span_width * $panel->span + ($space * ($panel->span - 1)) *4;
-            $height = 200 * 2;
             $from = (date('U') - (3600 * 24 * 7)) * 1000;
             $to = date('U') * 1000;
 
+
+            $width = (250 * $panel->span) + ($space * ($panel->span - 1) * $scale);
+            $height = 500;
             $resimg = $this->client->get($url.'/render/dashboard-solo/db/'.$dashboard_name.'?orgId=1&panelId='.$panel->id.'&from='.$from.'&to='.$to.'&width='.$width.'&height='.$height.'&theme=light&tz=UTC+02:00',
               ['headers' =>
                   [
@@ -163,22 +159,16 @@ class PluginGrafanaGrafana {
             if ($img_info[1] > $max_height_image) {
                $max_height_image = $img_info[1];
             }
-            $pdf->setImageScale(2);
             $pdf->SetLineWidth(1);
-            $pdf->Image('@'.$image_string, $x, $y, ($img_info[0]), ($img_info[1]), 'PNG', '', '', TRUE, 600, '', false, false, 1);
+            $pdf->Image('@'.$image_string, $x, $y, 0, 0, 'PNG', '', '', false, 300, '', false, false, 1);
             //$x += ($panel->span * 25);
             $x += $space;
-            $x += ($width / 2);
+            $x += ($width / $scale);
          }
-         $y += $max_height_image;
+         $y += ($height / $scale) + 10;
       }
       // reset pointer to the last page
       $pdf->lastPage();
-
       $pdf->Output('/tmp/grafana.pdf', 'I');
-
-
-
    }
-
 }
