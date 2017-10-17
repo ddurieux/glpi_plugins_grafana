@@ -226,6 +226,7 @@ class PluginGrafanaGrafana {
         $pdf->AddPage('L');
         $pdf->setPageUnit('px');
         $page_width = $pdf->getPageWidth();
+        $page_height = $pdf->getPageHeight();
 
         $scale = 4;
         $pdf->setImageScale($scale);
@@ -252,7 +253,6 @@ class PluginGrafanaGrafana {
         foreach ($dashboard->dashboard->rows as $row) {
            $space = 7;
            $span_width = ceil($page_width - ($space * 13)) / 12;
-
            $x = $space;
            $max_height_image = 0;
            foreach ($row->panels as $panel) {
@@ -280,6 +280,10 @@ class PluginGrafanaGrafana {
               $x += ($width / $scale);
            }
            $y += ($height / $scale) + 10;
+           if ($y > $page_height) {
+               $y = 30 + ($height / $scale) + 10;
+           }
+           Toolbox::logDebug("y value : ".$y);
         }
         // reset pointer to the last page
         $pdf->lastPage();
