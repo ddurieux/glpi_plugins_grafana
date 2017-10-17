@@ -46,6 +46,11 @@ if (!defined('GLPI_ROOT')) {
 
 class MYPDF extends TCPDF {
 
+    //Page header
+    public function Header() {
+
+    }
+
 	// Page footer
 	public function Footer() {
 
@@ -82,93 +87,203 @@ class PluginGrafanaGrafana {
       $this->client = new GuzzleHttp\Client();
    }
 
-   function get_dashboards() {
-      $token = "eyJrIjoiRmp6R2t2NGttVnV3YldKdHRvbTVDMHhPVDFqaUM4NVMiLCJuIjoidGVzdDIiLCJpZCI6MX0=";
-      $url = "http://127.0.0.1:3000";
-      $dashboard_name = "glpi-dashboard-test";
 
+   /**
+    * Get and display grafana dashboards
+    */
+   function getDashboards() {
+      global $CFG_GLPI;
 
-      $res = $this->client->get($url.'/api/search',
-              ['headers' =>
-                  [
-                      'Authorization' => "Bearer ".$token
-                  ]
-              ]
-      );
-      $body = $res->getBody();
+      $pgEntity = new PluginGrafanaEntity();
+      $entity = new Entity();
 
-      // get dashboard with name
-      $res = $this->client->get($url.'/api/dashboards/db/'.$dashboard_name,
-              ['headers' =>
-                  [
-                      'Authorization' => "Bearer ".$token
-                  ]
-              ]
-      );
-      $body = $res->getBody();
-      $dashboard = json_decode($body->getContents());
+      echo Html::scriptBlock('function setType(uri, name, pgentities_id)
+   {
+      document.forms["generate"].elements["uri"].value = uri;
+      document.forms["generate"].elements["name"].value = name;
+      document.forms["generate"].elements["pgentities_id"].value = pgentities_id;
+   }');
 
-      $pdf = new MYPDF();
-      $pdf->SetCreator(PDF_CREATOR);
+      $target = $CFG_GLPI['root_doc'].
+          '/plugins/grafana/front/generate.php';
 
-      $pdf->setPrintHeader(false);
+      echo "<form action='".$target."' method='get' target='_blank' name='generate'>";
 
-      // set auto page breaks
-      $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
+      echo "<table class='tab_cadre_fixe'>";
+      echo "<tr>";
+      echo "<th>";
+      echo "date début";
+      echo "</th>";
+      echo "<th>";
+      echo "date fin";
+      echo "</th>";
+      echo "</tr>";
 
-      // set font
-      $pdf->SetFont('helvetica', '', 10);
+      echo "<tr>";
+      echo "<td>";
+      Html::showDateTimeField("begin_date", ['value' => date('Y-m-01 00:00:00')]);
+      echo "</td>";
+      echo "<td>";
+      Html::showDateTimeField("end_date", ['value' => date('Y-m-d H:i:s')]);
+      echo "</td>";
+      echo "</tr>";
+      echo "</table>";
 
-      $pdf->AddPage('L');
-      $pdf->setPageUnit('px');
-      $page_width = $pdf->getPageWidth();
-      $y = 0;
-      // get each graph of each panel and recompose each line
+      echo "<input type='hidden' name='uri' value=''/>";
+      echo "<input type='hidden' name='name' value='' />";
+      echo "<input type='hidden' name='pgentities_id' value='' />";
 
-      $scale = 4;
-      $pdf->setImageScale($scale);
+      echo "<table class='tab_cadre_fixe'>";
+      echo "<tr>";
+      echo "<th colspan='3'>";
+      echo "Grafana dashboards";
+      echo "</th>";
+      echo "</tr>";
 
+      foreach ($_SESSION['glpiactiveentities'] as $entities_id) {
+          $grafanas = $pgEntity->find("`entities_id`='".$entities_id."'");
+          if (count($grafanas) > 0) {
+              $grafana = current($grafanas);
+              $token = $grafana['token'];
+              $url = $grafana['url'];
+              $entity->getFromDB($entities_id);
 
-      foreach ($dashboard->dashboard->rows as $row) {
-         $space = 7;
-         $span_width = ceil($page_width - ($space * 13)) / 12;
+              $res = $this->client->get($url.'/api/search',
+                      ['headers' =>
+                          [
+                              'Authorization' => "Bearer ".$token
+                          ]
+                      ]
+              );
+              $body = $res->getBody();
+              $dashboards = json_decode($body->getContents());
 
-         //$html = $this->loadCSS(False);
-         //$pdf->writeHTML($html, true, false, false, false, '');
-
-         $x = $space;
-         $max_height_image = 0;
-         foreach ($row->panels as $panel) {
-            // get the image
-            $from = (date('U') - (3600 * 24 * 7)) * 1000;
-            $to = date('U') * 1000;
-
-
-            $width = (250 * $panel->span) + ($space * ($panel->span - 1) * $scale);
-            $height = 500;
-            $resimg = $this->client->get($url.'/render/dashboard-solo/db/'.$dashboard_name.'?orgId=1&panelId='.$panel->id.'&from='.$from.'&to='.$to.'&width='.$width.'&height='.$height.'&theme=light&tz=UTC+02:00',
-              ['headers' =>
-                  [
-                      'Authorization' => "Bearer ".$token
-                  ]
-              ]
-            );
-            $bodyimg = $resimg->getBody();
-            $image_string = $bodyimg->getContents();
-            $img_info = getimagesizefromstring($image_string);
-            if ($img_info[1] > $max_height_image) {
-               $max_height_image = $img_info[1];
-            }
-            $pdf->SetLineWidth(1);
-            $pdf->Image('@'.$image_string, $x, $y, 0, 0, 'PNG', '', '', false, 300, '', false, false, 1);
-            //$x += ($panel->span * 25);
-            $x += $space;
-            $x += ($width / $scale);
-         }
-         $y += ($height / $scale) + 10;
+              foreach ($dashboards as $dashboard) {
+                 if (!empty($dashboard->title)) {
+                    echo "<tr>";
+                    echo "<td>";
+                    echo $entity->getLink(['comments' => True]);
+                    echo "</td>";
+                    echo "<td>";
+                    echo $dashboard->title;
+                    echo "</td>";
+                    echo "<td>";
+                    echo "<input type='submit' value='generate the PDF' class='submit' onclick='setType(\"".$dashboard->uri."\",\"".$dashboard->title."\",\"".$grafana['id']."\")'/>";
+                    echo "</td>";
+                    echo "</tr>";
+                 }
+              }
+          }
       }
-      // reset pointer to the last page
-      $pdf->lastPage();
-      $pdf->Output('/tmp/grafana.pdf', 'I');
+
+      echo "</table>";
+      echo "</form>";
+   }
+
+
+
+   function generateDashboards($uri, $dashboard_name, $begin_date, $end_date, $pgentities_id) {
+      $pgEntity = new PluginGrafanaEntity();
+      if ($pgEntity->getFromDB($pgentities_id)) {
+         if (!isset($_SESSION['glpiactiveentities'][$pgEntity->fields['entities_id']])) {
+            return;
+         }
+
+        $token = $pgEntity->fields['token'];
+        $url = $pgEntity->fields['url'];
+
+        // Get current organisation
+        $res = $this->client->get($url.'/api/org',
+                ['headers' =>
+                    [
+                        'Authorization' => "Bearer ".$token
+                    ]
+                ]
+        );
+        $body = $res->getBody();
+        $organization = json_decode($body->getContents());
+
+        // get dashboard with name
+        $res = $this->client->get($url.'/api/dashboards/'.$uri,
+                ['headers' =>
+                    [
+                        'Authorization' => "Bearer ".$token
+                    ]
+                ]
+        );
+        $body = $res->getBody();
+        $dashboard = json_decode($body->getContents());
+
+        $pdf = new MYPDF();
+        $pdf->SetCreator(PDF_CREATOR);
+
+        // set auto page breaks
+        $pdf->SetAutoPageBreak(TRUE, PDF_MARGIN_BOTTOM);
+
+        // set font
+        $pdf->SetFont('helvetica', '', 10);
+
+        $pdf->AddPage('L');
+        $pdf->setPageUnit('px');
+        $page_width = $pdf->getPageWidth();
+
+        $scale = 4;
+        $pdf->setImageScale($scale);
+
+        $pdf->SetFont('helvetica', 'B', 12);
+        $pdf->Cell(0, 25, $dashboard_name." / du ".$begin_date." au ".$end_date, 0, false, 'C', 0, '', 0, false, 'M', 'M');
+        $y = 30;
+        $dates = explode(' ', $begin_date);
+        $d = explode('-', $dates[0]);
+        $t = explode(':', $dates[1]);
+        if (!isset($t[2])) {
+           $t[2] = 0;
+        }
+        $from = (date('U', mktime($t[0], $t[1], $t[2], $d[1], $d[2], $d[0]))) * 1000;
+
+        $dates = explode(' ', $end_date);
+        $d = explode('-', $dates[0]);
+        $t = explode(':', $dates[1]);
+        if (!isset($t[2])) {
+           $t[2] = 0;
+        }
+        $to = date('U', mktime($t[0], $t[1], $t[2], $d[1], $d[2], $d[0])) * 1000;
+
+        foreach ($dashboard->dashboard->rows as $row) {
+           $space = 7;
+           $span_width = ceil($page_width - ($space * 13)) / 12;
+
+           $x = $space;
+           $max_height_image = 0;
+           foreach ($row->panels as $panel) {
+              // get the image
+
+              $width = (250 * $panel->span) + ($space * ($panel->span - 1) * $scale);
+              $height = 500;
+              $resimg = $this->client->get($url.'/render/dashboard-solo/'.$uri.'?orgId='.$organization->id.'&panelId='.$panel->id.'&from='.$from.'&to='.$to.'&width='.$width.'&height='.$height.'&theme=light&tz=UTC+02:00&timeout=200',
+                ['headers' =>
+                    [
+                        'Authorization' => "Bearer ".$token
+                    ]
+                ]
+              );
+              $bodyimg = $resimg->getBody();
+              $image_string = $bodyimg->getContents();
+              $img_info = getimagesizefromstring($image_string);
+              if ($img_info[1] > $max_height_image) {
+                 $max_height_image = $img_info[1];
+              }
+              $pdf->SetLineWidth(1);
+              $pdf->Image('@'.$image_string, $x, $y, 0, 0, 'PNG', '', '', false, 300, '', false, false, 1);
+              //$x += ($panel->span * 25);
+              $x += $space;
+              $x += ($width / $scale);
+           }
+           $y += ($height / $scale) + 10;
+        }
+        // reset pointer to the last page
+        $pdf->lastPage();
+        $pdf->Output('/tmp/grafana.pdf', 'I');
+      }
    }
 }

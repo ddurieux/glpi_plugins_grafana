@@ -50,8 +50,14 @@ function plugin_init_grafana() {
 
    $Plugin = new Plugin();
    if ($Plugin->isActivated('grafana')) {
-//      Plugin::registerClass('PluginSolvecloseticketactionConfig',
-//           array('addtabon' => array('Entity')));
+      $autoload = GLPI_ROOT . '/plugins/grafana/vendor/autoload.php';
+      require $autoload;
+
+      $Plugin->registerClass('PluginGrafanaEntity',
+                 array('addtabon' => array('Entity')));
+
+      $PLUGIN_HOOKS["menu_toadd"]['grafana'] = array('tools'  => 'PluginGrafanaMenu');
+
    }
    return $PLUGIN_HOOKS;
 }
