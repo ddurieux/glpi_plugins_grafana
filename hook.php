@@ -66,5 +66,3 @@ function plugin_grafana_uninstall() {
 
    return true;
 }
-
-?>

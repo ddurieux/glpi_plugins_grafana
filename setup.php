@@ -40,7 +40,7 @@
    ------------------------------------------------------------------------
  */
 
-define ("PLUGIN_GRAFANA_VERSION","9.1+1.0");
+define ("PLUGIN_GRAFANA_VERSION","9.2+1.0");
 
 // Init the hooks
 function plugin_init_grafana() {
@@ -93,4 +93,3 @@ function plugin_grafana_haveTypeRight($type,$right) {
    return true;
 }
 
-?>

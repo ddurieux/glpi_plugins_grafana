@@ -154,5 +154,3 @@ class PluginGrafanaEntity extends CommonDBTM {
    }
 
 }
-
-?>
