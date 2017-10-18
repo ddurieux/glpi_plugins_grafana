@@ -223,6 +223,7 @@ class PluginGrafanaGrafana {
         // set font
         $pdf->SetFont('helvetica', '', 10);
 
+        $pdf->SetLineWidth(1);
         $pdf->AddPage('L');
         $pdf->setPageUnit('px');
         $page_width = $pdf->getPageWidth();
@@ -273,17 +274,18 @@ class PluginGrafanaGrafana {
               if ($img_info[1] > $max_height_image) {
                  $max_height_image = $img_info[1];
               }
-              $pdf->SetLineWidth(1);
               $pdf->Image('@'.$image_string, $x, $y, 0, 0, 'PNG', '', '', false, 300, '', false, false, 1);
               //$x += ($panel->span * 25);
               $x += $space;
               $x += ($width / $scale);
+              if (($y + ($height / $scale)) > $page_height) {
+                 $y = $pdf->GetY();
+              }
            }
            $y += ($height / $scale) + 10;
            if ($y > $page_height) {
-               $y = 30 + ($height / $scale) + 10;
+               $y = 30;
            }
-           Toolbox::logDebug("y value : ".$y);
         }
         // reset pointer to the last page
         $pdf->lastPage();
